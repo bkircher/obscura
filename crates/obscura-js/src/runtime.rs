@@ -19628,6 +19628,28 @@ mod tests {
         assert_eq!(out["nullBody"], true);
     }
 
+    #[tokio::test(flavor = "current_thread")]
+    async fn response_consumes_supplied_body_stream() {
+        // #1361: Response must consume bytes from a supplied body stream.
+        let mut rt = setup_runtime("<html><body></body></html>");
+
+        let result = rt
+            .evaluate_for_cdp(
+                r#"(async () => {
+                    const original = new Response('{"ok":true}');
+                    const wrapped = new Response(original.body);
+                    return await wrapped.json();
+                })()"#,
+                true,
+                true,
+            )
+            .await
+            .expect("evaluation must complete");
+
+        assert!(!result.thrown, "unexpected JS error: {}", result.description);
+        assert_eq!(result.value, Some(serde_json::json!({"ok": true})));
+    }
+
     #[test]
     fn test_navigator() {
         let mut rt = setup_runtime("<html><body></body></html>");
